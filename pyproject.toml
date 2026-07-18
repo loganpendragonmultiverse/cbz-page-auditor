@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cbz-page-auditor"
+version = "1.0.0"
+description = "A read-only integrity and page-quality audit for CBZ comic archives."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["Pillow>=10.4"]
+license = "MIT"
+authors = [{ name = "Logan Pendragon Multiverse" }]
+keywords = ["cbz", "comics", "archive", "audit"]
+
+[project.scripts]
+cbz-audit = "cbz_auditor.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/loganpendragonmultiverse/cbz-page-auditor"
+Issues = "https://github.com/loganpendragonmultiverse/cbz-page-auditor/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cbz_auditor"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
