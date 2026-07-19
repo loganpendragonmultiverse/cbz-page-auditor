@@ -2,6 +2,7 @@ import io
 import zipfile
 from pathlib import Path
 
+import py7zr
 from PIL import Image
 
 from cbz_auditor.audit import audit_archive
@@ -17,6 +18,18 @@ def make_cbz(path: Path, entries: dict[str, bytes]) -> Path:
     with zipfile.ZipFile(path, "w") as archive:
         for name, data in entries.items():
             archive.writestr(name, data)
+    return path
+
+
+def make_cb7(path: Path, entries: dict[str, bytes], workspace: Path) -> Path:
+    source = workspace / "seven-source"
+    source.mkdir()
+    for name, data in entries.items():
+        target = source / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    with py7zr.SevenZipFile(path, "w") as archive:
+        archive.writeall(source, arcname="")
     return path
 
 
@@ -45,3 +58,18 @@ def test_non_zip_is_reported_without_crashing(tmp_path: Path) -> None:
     target = tmp_path / "not-a-zip.cbz"
     target.write_text("nope", encoding="utf-8")
     assert audit_archive(target).findings[0].rule == "invalid-archive"
+
+
+def test_cb7_archive_is_audited(tmp_path: Path) -> None:
+    target = make_cb7(tmp_path / "clean.cb7", {f"pages/{number:03}.png": image_bytes(color=(number * 20, 80, 100)) for number in range(1, 5)}, tmp_path)
+    result = audit_archive(target)
+    assert len(result.pages) == 4
+    assert result.status == "passed"
+
+
+def test_unsupported_archive_has_clear_error(tmp_path: Path) -> None:
+    target = tmp_path / "comic.tar"
+    target.write_bytes(b"not supported")
+    result = audit_archive(target)
+    assert result.findings[0].rule == "invalid-archive"
+    assert "Supported archives" in result.findings[0].message

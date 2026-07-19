@@ -6,20 +6,20 @@ import json
 import sys
 from pathlib import Path
 
-from .audit import Result, audit_archive
+from .audit import ARCHIVE_EXTENSIONS, Result, audit_archive
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="cbz-audit", description="Audit CBZ comic pages without modifying the archive.")
-    parser.add_argument("target", help="CBZ file or directory containing CBZ files")
+    parser = argparse.ArgumentParser(prog="cbz-audit", description="Audit ZIP, 7Z, and RAR comic archives without modifying them.")
+    parser.add_argument("target", help="comic archive or directory containing comic archives")
     parser.add_argument("--format", choices=("text", "json", "html"), default="text")
     parser.add_argument("--output", type=Path, help="output file for one archive or output directory for a batch")
     parser.add_argument("--fail-on-warnings", action="store_true")
     args = parser.parse_args(argv)
     target = Path(args.target)
-    archives = sorted(target.glob("*.cbz")) if target.is_dir() else [target]
+    archives = sorted(path for path in target.iterdir() if path.is_file() and path.suffix.casefold() in ARCHIVE_EXTENSIONS) if target.is_dir() else [target]
     if not archives or any(not path.is_file() for path in archives):
-        print("cbz-audit: no readable CBZ target found", file=sys.stderr)
+        print("cbz-audit: no supported comic archive target found", file=sys.stderr)
         return 2
     results = [audit_archive(path) for path in archives]
     report = _render(results, args.format)
