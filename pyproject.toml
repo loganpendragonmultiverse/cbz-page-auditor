@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cbz-page-auditor"
-version = "1.0.0"
-description = "A read-only integrity and page-quality audit for CBZ comic archives."
+version = "1.1.0"
+description = "A read-only integrity and page-quality audit for ZIP, 7Z, and RAR comic archives."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["Pillow>=10.4"]
+dependencies = ["Pillow>=10.4", "py7zr>=1.0", "rarfile>=4.2"]
 license = "MIT"
 authors = [{ name = "Logan Pendragon Multiverse" }]
-keywords = ["cbz", "comics", "archive", "audit"]
+keywords = ["cbz", "cbr", "cb7", "comics", "archive", "audit"]
 
 [project.scripts]
 cbz-audit = "cbz_auditor.cli:main"

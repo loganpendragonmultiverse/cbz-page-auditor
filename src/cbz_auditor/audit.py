@@ -4,14 +4,26 @@ import hashlib
 import io
 import re
 import statistics
+import tempfile
 import zipfile
 from dataclasses import asdict, dataclass
 from pathlib import Path, PurePosixPath
+from typing import Iterator
 
+import py7zr
+import rarfile
 from PIL import Image, ImageStat, UnidentifiedImageError
 
 IMAGE_EXTENSIONS = {".avif", ".bmp", ".gif", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
+ARCHIVE_EXTENSIONS = {".cbz", ".zip", ".cb7", ".7z", ".cbr", ".rar"}
 NUMBER = re.compile(r"(?<!\d)(\d{1,6})(?!\d)")
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveEntry:
+    name: str
+    size: int
+    data: bytes
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,36 +71,30 @@ def audit_archive(path: Path, max_pages: int = 10_000, max_uncompressed_mb: int 
     findings: list[Finding] = []
     pages: list[Page] = []
     try:
-        with zipfile.ZipFile(archive) as source:
-            entries = [item for item in source.infolist() if not item.is_dir()]
-            if len(entries) > max_pages:
-                raise ValueError(f"Archive has {len(entries)} entries; limit is {max_pages}.")
-            total_size = sum(item.file_size for item in entries)
-            if total_size > max_uncompressed_mb * 1024 * 1024:
-                raise ValueError(f"Uncompressed archive size exceeds {max_uncompressed_mb} MB limit.")
-            for entry in entries:
-                pure = PurePosixPath(entry.filename.replace("\\", "/"))
-                if pure.is_absolute() or ".." in pure.parts:
-                    findings.append(Finding("error", "unsafe-path", "Archive entry uses an unsafe path.", entry.filename))
-                    continue
-                if pure.suffix.casefold() not in IMAGE_EXTENSIONS:
-                    if pure.name.casefold() not in {"comicinfo.xml", ".ds_store"} and not pure.name.startswith("__MACOSX"):
-                        findings.append(Finding("warning", "non-image-entry", "Unexpected non-image file in archive.", entry.filename))
-                    continue
-                try:
-                    data = source.read(entry)
-                    if not data:
-                        raise OSError("empty file")
-                    with Image.open(io.BytesIO(data)) as image:
-                        image.verify()
-                    with Image.open(io.BytesIO(data)) as image:
-                        converted = image.convert("L")
-                        brightness = float(ImageStat.Stat(converted).mean[0])
-                        pages.append(Page(entry.filename, image.width, image.height, image.format or "unknown", hashlib.sha256(data).hexdigest(), round(brightness, 2)))
-                except (OSError, UnidentifiedImageError, zipfile.BadZipFile) as exc:
-                    findings.append(Finding("error", "unreadable-image", f"Image cannot be decoded: {exc}", entry.filename))
-    except zipfile.BadZipFile as exc:
-        return Result(str(archive), (), (Finding("error", "invalid-archive", f"CBZ is not a readable ZIP archive: {exc}"),))
+        entries = tuple(_read_entries(archive, max_pages, max_uncompressed_mb))
+    except (OSError, ValueError, zipfile.BadZipFile, py7zr.Bad7zFile, rarfile.Error) as exc:
+        return Result(str(archive), (), (Finding("error", "invalid-archive", f"Archive cannot be read: {exc}"),))
+
+    for entry in entries:
+        pure = _safe_name(entry.name)
+        if pure is None:
+            findings.append(Finding("error", "unsafe-path", "Archive entry uses an unsafe path.", entry.name))
+            continue
+        if pure.suffix.casefold() not in IMAGE_EXTENSIONS:
+            if pure.name.casefold() not in {"comicinfo.xml", ".ds_store"} and "__MACOSX" not in pure.parts:
+                findings.append(Finding("warning", "non-image-entry", "Unexpected non-image file in archive.", entry.name))
+            continue
+        try:
+            if not entry.data:
+                raise OSError("empty file")
+            with Image.open(io.BytesIO(entry.data)) as image:
+                image.verify()
+            with Image.open(io.BytesIO(entry.data)) as image:
+                converted = image.convert("L")
+                brightness = float(ImageStat.Stat(converted).mean[0])
+                pages.append(Page(entry.name, image.width, image.height, image.format or "unknown", hashlib.sha256(entry.data).hexdigest(), round(brightness, 2)))
+        except (OSError, UnidentifiedImageError) as exc:
+            findings.append(Finding("error", "unreadable-image", f"Image cannot be decoded: {exc}", entry.name))
 
     if not pages:
         findings.append(Finding("error", "no-pages", "No readable page images were found."))
@@ -105,6 +111,72 @@ def audit_archive(path: Path, max_pages: int = 10_000, max_uncompressed_mb: int 
             findings.append(Finding("info", "possible-spread", f"Wide page may be a double-page spread ({page.width}×{page.height}).", page.name))
     findings.sort(key=lambda item: ({"error": 0, "warning": 1, "info": 2}[item.severity], item.page or "", item.rule))
     return Result(str(archive), tuple(pages), tuple(findings))
+
+
+def _read_entries(path: Path, max_entries: int, max_uncompressed_mb: int) -> Iterator[ArchiveEntry]:
+    suffix = path.suffix.casefold()
+    max_bytes = max_uncompressed_mb * 1024 * 1024
+    if suffix in {".cbz", ".zip"}:
+        with zipfile.ZipFile(path) as source:
+            infos = [item for item in source.infolist() if not item.is_dir()]
+            _enforce_limits(((item.filename, item.file_size) for item in infos), max_entries, max_bytes)
+            for item in infos:
+                yield ArchiveEntry(item.filename, item.file_size, source.read(item))
+        return
+    if suffix in {".cbr", ".rar"}:
+        with rarfile.RarFile(path) as source:
+            infos = [item for item in source.infolist() if not item.isdir()]
+            _enforce_limits(((item.filename, item.file_size) for item in infos), max_entries, max_bytes)
+            for item in infos:
+                try:
+                    yield ArchiveEntry(item.filename, item.file_size, source.read(item))
+                except rarfile.RarCannotExec as exc:
+                    raise ValueError("RAR/CBR needs UnRAR, 7-Zip, unar, or bsdtar installed and available on PATH") from exc
+        return
+    if suffix in {".cb7", ".7z"}:
+        with py7zr.SevenZipFile(path, mode="r") as source:
+            infos = [item for item in source.list() if not item.is_directory]
+            _enforce_limits(((item.filename, int(item.uncompressed or 0)) for item in infos), max_entries, max_bytes)
+            if any(not item.is_file or item.is_symlink for item in infos):
+                raise ValueError("7Z links and non-regular entries are not accepted")
+            unsafe = [item.filename for item in infos if _safe_name(item.filename) is None]
+            targets = [item.filename for item in infos if _safe_name(item.filename) is not None]
+        for name in unsafe:
+            yield ArchiveEntry(name, 0, b"")
+        with tempfile.TemporaryDirectory(prefix="cbz-audit-") as temporary:
+            root = Path(temporary).resolve()
+            with py7zr.SevenZipFile(path, mode="r") as source:
+                source.extract(path=root, targets=targets)
+            for name in targets:
+                pure = _safe_name(name)
+                if pure is None:
+                    yield ArchiveEntry(name, 0, b"")
+                    continue
+                extracted = (root / Path(*pure.parts)).resolve()
+                if root not in extracted.parents or not extracted.is_file():
+                    raise ValueError(f"7Z entry did not extract to a safe regular file: {name}")
+                data = extracted.read_bytes()
+                yield ArchiveEntry(name, len(data), data)
+        return
+    raise ValueError("Supported archives are .cbz, .zip, .cb7, .7z, .cbr, and .rar")
+
+
+def _safe_name(name: str) -> PurePosixPath | None:
+    pure = PurePosixPath(name.replace("\\", "/"))
+    if pure.is_absolute() or not pure.parts or ".." in pure.parts:
+        return None
+    if re.match(r"^[A-Za-z]:", pure.parts[0]):
+        return None
+    return pure
+
+
+def _enforce_limits(entries: Iterator[tuple[str, int]], max_entries: int, max_bytes: int) -> None:
+    values = list(entries)
+    if len(values) > max_entries:
+        raise ValueError(f"Archive has {len(values)} entries; limit is {max_entries}.")
+    total = sum(size for _, size in values)
+    if total > max_bytes:
+        raise ValueError(f"Uncompressed archive size exceeds {max_bytes // (1024 * 1024)} MB limit.")
 
 
 def _duplicates(pages: list[Page]) -> list[Finding]:
