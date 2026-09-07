@@ -62,3 +62,13 @@ Released under the [MIT License](LICENSE).
 ## More open-source projects
 
 This project is part of the [Logan Pendragon Forge open-source collection](https://www.loganpendragonforge.com/open-source/). Browse the catalog for other released tools, source repositories, live demos, and downloads.
+
+## Version 1.2.0: reviewed improvements
+
+Repair formatting and add local finding contact sheets, decoder diagnostics and resumable per-archive checkpoints.
+
+```bash
+cbz-audit ./comics --state checkpoint.json --format html --output review.html
+```
+
+HTML contact sheets include up to 200 page thumbnails per archive, whole-page finding labels and navigation to previewed pages. Labels do not claim precise pixel localization. --doctor reports installed Python decoders and RAR-related executables on PATH; discovery does not prove a decoder works for every archive. --state writes an atomic per-archive checkpoint; --resume explicitly reuses it after checking full archive SHA-256 hashes. Changed archives are re-audited, and damaged archives retain their own failed results while other archives continue. Checkpoints are trusted local review data, not tamper-proof attestations. Reports must be new files. Original archives are not changed, and thumbnails remain local unless you share the report.
