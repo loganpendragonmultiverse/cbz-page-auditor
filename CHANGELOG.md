@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0 - 2026-09-07
+
+- Repair formatting and add local finding contact sheets, decoder diagnostics and resumable per-archive checkpoints.
+- Added regression coverage for the audited behavior and invalid inputs.
+
 ## 1.1.0 - 2026-07-18
 
 - Added read-only 7Z/CB7 auditing with automatically deleted temporary extraction.

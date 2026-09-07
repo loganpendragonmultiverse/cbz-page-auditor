@@ -34,7 +34,13 @@ def make_cb7(path: Path, entries: dict[str, bytes], workspace: Path) -> Path:
 
 
 def test_clean_archive_passes(tmp_path: Path) -> None:
-    target = make_cbz(tmp_path / "clean.cbz", {f"{number:03}.png": image_bytes(color=(number * 20, 80, 100)) for number in range(1, 5)})
+    target = make_cbz(
+        tmp_path / "clean.cbz",
+        {
+            f"{number:03}.png": image_bytes(color=(number * 20, 80, 100))
+            for number in range(1, 5)
+        },
+    )
     result = audit_archive(target)
     assert len(result.pages) == 4
     assert result.status == "passed"
@@ -42,7 +48,15 @@ def test_clean_archive_passes(tmp_path: Path) -> None:
 
 def test_duplicate_gap_and_small_page_are_reported(tmp_path: Path) -> None:
     same = image_bytes()
-    target = make_cbz(tmp_path / "issues.cbz", {"001.png": same, "002.png": same, "004.png": image_bytes(color=(1, 2, 3)), "005.png": image_bytes((100, 100), (50, 50, 50))})
+    target = make_cbz(
+        tmp_path / "issues.cbz",
+        {
+            "001.png": same,
+            "002.png": same,
+            "004.png": image_bytes(color=(1, 2, 3)),
+            "005.png": image_bytes((100, 100), (50, 50, 50)),
+        },
+    )
     rules = {item.rule for item in audit_archive(target).findings}
     assert {"duplicate-page", "numbering-gap", "small-page"} <= rules
 
@@ -61,7 +75,14 @@ def test_non_zip_is_reported_without_crashing(tmp_path: Path) -> None:
 
 
 def test_cb7_archive_is_audited(tmp_path: Path) -> None:
-    target = make_cb7(tmp_path / "clean.cb7", {f"pages/{number:03}.png": image_bytes(color=(number * 20, 80, 100)) for number in range(1, 5)}, tmp_path)
+    target = make_cb7(
+        tmp_path / "clean.cb7",
+        {
+            f"pages/{number:03}.png": image_bytes(color=(number * 20, 80, 100))
+            for number in range(1, 5)
+        },
+        tmp_path,
+    )
     result = audit_archive(target)
     assert len(result.pages) == 4
     assert result.status == "passed"
