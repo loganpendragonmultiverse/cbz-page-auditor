@@ -6,9 +6,9 @@ import re
 import statistics
 import tempfile
 import zipfile
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from pathlib import Path, PurePosixPath
-from typing import Iterator
 
 import py7zr
 import rarfile  # type: ignore[import-untyped]

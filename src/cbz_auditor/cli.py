@@ -21,6 +21,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--doctor", action="store_true")
     parser.add_argument("--state", type=Path, help="Per-archive checkpoint JSON")
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--max-pages", type=int, default=10_000)
+    parser.add_argument("--max-uncompressed-mb", type=int, default=2_000)
     parser.add_argument("--format", choices=("text", "json", "html"), default="text")
     parser.add_argument(
         "--output",
@@ -54,7 +56,13 @@ def main(argv: list[str] | None = None) -> int:
             and args.output.resolve() == args.state.resolve()
         ):
             raise ValueError("report must be a new file distinct from the checkpoint")
-        results = audit_batch(archives, args.state, resume=args.resume)
+        results = audit_batch(
+            archives,
+            args.state,
+            resume=args.resume,
+            max_pages=args.max_pages,
+            max_uncompressed_mb=args.max_uncompressed_mb,
+        )
         report = _render(results, args.format)
     except (OSError, ValueError, TypeError, KeyError) as exc:
         print(f"cbz-audit: {exc}", file=sys.stderr)
