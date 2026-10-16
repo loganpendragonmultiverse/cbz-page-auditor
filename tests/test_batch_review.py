@@ -6,7 +6,7 @@ from zipfile import ZipFile
 import pytest
 from PIL import Image
 
-import cbz_auditor.batch as batch
+from cbz_auditor import batch
 from cbz_auditor.cli import main
 
 
@@ -27,7 +27,7 @@ def test_interrupted_batch_resumes_unchanged_and_reaudits_changed(
     original = batch.audit_archive
     calls = []
 
-    def interrupted(path: Path):
+    def interrupted(path: Path, *limits):
         calls.append(path.name)
         if path == two:
             raise RuntimeError("simulated interruption")
@@ -39,7 +39,7 @@ def test_interrupted_batch_resumes_unchanged_and_reaudits_changed(
     assert len(json.loads(state.read_text(encoding="utf-8"))["records"]) == 1
     calls.clear()
 
-    def resumed(path: Path):
+    def resumed(path: Path, *limits):
         calls.append(path.name)
         return original(path)
 

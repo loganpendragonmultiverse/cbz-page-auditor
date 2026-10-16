@@ -21,6 +21,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--doctor", action="store_true")
     parser.add_argument("--state", type=Path, help="Per-archive checkpoint JSON")
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--max-pages", type=int, default=10_000)
+    parser.add_argument("--max-uncompressed-mb", type=int, default=2_000)
     parser.add_argument("--format", choices=("text", "json", "html"), default="text")
     parser.add_argument(
         "--output",
@@ -54,8 +56,19 @@ def main(argv: list[str] | None = None) -> int:
             and args.output.resolve() == args.state.resolve()
         ):
             raise ValueError("report must be a new file distinct from the checkpoint")
-        results = audit_batch(archives, args.state, resume=args.resume)
-        report = _render(results, args.format)
+        results = audit_batch(
+            archives,
+            args.state,
+            resume=args.resume,
+            max_pages=args.max_pages,
+            max_uncompressed_mb=args.max_uncompressed_mb,
+        )
+        report = _render(
+            results,
+            args.format,
+            max_pages=args.max_pages,
+            max_uncompressed_mb=args.max_uncompressed_mb,
+        )
     except (OSError, ValueError, TypeError, KeyError) as exc:
         print(f"cbz-audit: {exc}", file=sys.stderr)
         return 2
@@ -71,7 +84,13 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _render(results: list[Result], format_name: str) -> str:
+def _render(
+    results: list[Result],
+    format_name: str,
+    *,
+    max_pages: int = 10_000,
+    max_uncompressed_mb: int = 2_000,
+) -> str:
     if format_name == "json":
         return (
             json.dumps(
@@ -84,7 +103,9 @@ def _render(results: list[Result], format_name: str) -> str:
     if format_name == "html":
         sections: list[str] = []
         for result in results:
-            previews = thumbnails(result)
+            previews = thumbnails(
+                result, max_pages=max_pages, max_uncompressed_mb=max_uncompressed_mb
+            )
             prefix = f"archive-{len(sections)}"
             anchors = {
                 page.name: f"{prefix}-page-{index}"
