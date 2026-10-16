@@ -5,6 +5,7 @@
 - Bound resume checkpoints to the engine, decoder versions, schema and audit limits.
 - Re-audit stale or malformed records and detect archive changes before advancing state.
 - Added configurable CLI audit limits and checkpoint regression fixtures.
+- Apply the same effective audit limits when rendering HTML thumbnail previews.
 
 ## 1.2.0 - 2026-09-07
 

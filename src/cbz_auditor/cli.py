@@ -63,7 +63,12 @@ def main(argv: list[str] | None = None) -> int:
             max_pages=args.max_pages,
             max_uncompressed_mb=args.max_uncompressed_mb,
         )
-        report = _render(results, args.format)
+        report = _render(
+            results,
+            args.format,
+            max_pages=args.max_pages,
+            max_uncompressed_mb=args.max_uncompressed_mb,
+        )
     except (OSError, ValueError, TypeError, KeyError) as exc:
         print(f"cbz-audit: {exc}", file=sys.stderr)
         return 2
@@ -79,7 +84,13 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _render(results: list[Result], format_name: str) -> str:
+def _render(
+    results: list[Result],
+    format_name: str,
+    *,
+    max_pages: int = 10_000,
+    max_uncompressed_mb: int = 2_000,
+) -> str:
     if format_name == "json":
         return (
             json.dumps(
@@ -92,7 +103,9 @@ def _render(results: list[Result], format_name: str) -> str:
     if format_name == "html":
         sections: list[str] = []
         for result in results:
-            previews = thumbnails(result)
+            previews = thumbnails(
+                result, max_pages=max_pages, max_uncompressed_mb=max_uncompressed_mb
+            )
             prefix = f"archive-{len(sections)}"
             anchors = {
                 page.name: f"{prefix}-page-{index}"

@@ -161,12 +161,18 @@ def audit_batch(
     return results
 
 
-def thumbnails(result: Result, limit: int = 200) -> dict[str, str]:
+def thumbnails(
+    result: Result,
+    limit: int = 200,
+    *,
+    max_pages: int = 10_000,
+    max_uncompressed_mb: int = 2_000,
+) -> dict[str, str]:
     selected = {page.name for page in result.pages[:limit]}
     output: dict[str, str] = {}
     if not selected:
         return output
-    for entry in _read_entries(Path(result.archive), 10_000, 2_000):
+    for entry in _read_entries(Path(result.archive), max_pages, max_uncompressed_mb):
         if entry.name not in selected:
             continue
         with Image.open(io.BytesIO(entry.data)) as source:

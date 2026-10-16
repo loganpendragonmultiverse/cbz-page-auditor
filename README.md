@@ -81,3 +81,7 @@ versions, audit limits, and full archive SHA-256 before reusing results. Changin
 a new state filename. Malformed records are re-audited; invalid JSON or unsupported
 schemas fail without replacing the checkpoint. Completed records survive interruption
 because each archive advances the state atomically. Checkpoints remain trusted local data.
+
+HTML thumbnails use the same effective archive entry and expanded-size limits as
+the audit and checkpoint identity. Raising limits is explicit; the defaults remain
+10,000 entries and 2,000 MB, with at most 200 thumbnail previews.
