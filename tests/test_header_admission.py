@@ -30,7 +30,12 @@ def test_portable_nested_image_names_refused_before_decode(tmp_path, monkeypatch
             z.writestr(name, image_bytes())
     else:
         with py7zr.SevenZipFile(source, "w") as z:
-            z.writestr(image_bytes(), name)
+            z.writestr(image_bytes(), "fixture.png")
+            assert z.header.files_info is not None
+            assert len(z.header.files_info.files) == 1
+            z.header.files_info.files[0]["filename"] = name
+        with py7zr.SevenZipFile(source) as z:
+            assert [item.filename for item in z.list()] == [name]
 
     def forbidden(*args, **kwargs):
         raise AssertionError("unsafe target must not be extracted")

@@ -2,6 +2,8 @@
 
 ## 2.0.0 — 2026-10-21
 
+- Gate tagged artifacts on full quality checks and package identity, pin maintained actions and emit exact workflow SHA256SUMS.
+
 - Require Python 3.11+ and Pillow 13, retaining six native matrix cells.
 - Stream bounded archive members and reject oversized images before decoding.
 - Verify complete ZIP streams and actual 7Z expansion budgets.

@@ -74,3 +74,12 @@ payload declarations must be empty. `--max-entries` is an alias for the retained
 `--max-pages` option. Selected member paths reject Windows device names (including
 superscript COM/LPT forms), nested ADS/colons, control characters, ambiguous Unicode
 aliases and trailing dots/spaces before any extraction.
+
+## Release artifact closure
+
+The tag workflow pins maintained action commits, checks the stable tag against
+the package version before building, runs the full quality and dependency-audit
+checks, validates wheel/sdist metadata and writes SHA256SUMS over those exact
+two payloads. Normal PR/main native matrix and independent installed-artifact
+review remain required before a public release. It does not publish a GitHub
+release automatically.
