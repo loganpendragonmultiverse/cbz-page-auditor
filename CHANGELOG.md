@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.0.0 — 2026-10-21
+
+- Require Python 3.11+ and Pillow 13, retaining six native matrix cells.
+- Stream bounded archive members and reject oversized images before decoding.
+- Verify complete ZIP streams and actual 7Z expansion budgets.
+- Preserve readable-page evidence alongside member failures when decoding can continue.
+- Bind checkpoints to native backend fingerprints and guard reports/checkpoints against collisions.
+- Install authority docs and an owned sample generator.
+
+
 ## 1.3.0 - 2026-10-16
 
 - Bound resume checkpoints to the engine, decoder versions, schema and audit limits.

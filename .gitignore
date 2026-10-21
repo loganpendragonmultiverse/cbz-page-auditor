@@ -8,3 +8,6 @@ build/
 .env
 audit.html
 audit.json
+.coverage
+.coverage.*
+htmlcov/
