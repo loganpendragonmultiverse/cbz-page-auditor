@@ -36,10 +36,7 @@ def make_cb7(path: Path, entries: dict[str, bytes], workspace: Path) -> Path:
 def test_clean_archive_passes(tmp_path: Path) -> None:
     target = make_cbz(
         tmp_path / "clean.cbz",
-        {
-            f"{number:03}.png": image_bytes(color=(number * 20, 80, 100))
-            for number in range(1, 5)
-        },
+        {f"{number:03}.png": image_bytes(color=(number * 20, 80, 100)) for number in range(1, 5)},
     )
     result = audit_archive(target)
     assert len(result.pages) == 4

@@ -62,9 +62,7 @@ def test_changed_during_audit_does_not_advance(tmp_path, monkeypatch):
     assert not state.exists()
 
 
-def test_raised_limits_render_html_and_resume_with_matching_identity(
-    tmp_path, monkeypatch
-):
+def test_raised_limits_render_html_and_resume_with_matching_identity(tmp_path, monkeypatch):
     from zipfile import ZipFile
 
     from cbz_auditor.cli import main
